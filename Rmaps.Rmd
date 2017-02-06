@@ -14,7 +14,7 @@ Mapping Spatial Data in R
 </center>
 </h1>
 
-This is a brief demonstration of common mapping techniques using spatial analysis tools in R. The goal here is to go from knowing nothing about shapefiles, to being able to create meaningful and good looking maps. For this exercise, I use the crime data from Portland, Oregon that was provided by the National Institute of Justice for their [crime prediction](https://nij.gov/funding/Pages/fy16-crime-forecasting-challenge.aspx) competition. You can download the data and R scripts for this exercise from its [Github repository](https://github.com/hautahi/RGIS_Tutorial).
+This is a brief demonstration of common mapping techniques using spatial analysis tools in R. The goal here is to go from knowing nothing about shapefiles, to being able to create meaningful and good looking maps. For this exercise, I use the crime data from Portland, Oregon that was provided by the National Institute of Justice for their [crime prediction](https://nij.gov/funding/Pages/fy16-crime-forecasting-challenge.aspx) competition. You can download the data and R scripts for this exercise from its [Github repository](https://github.com/hautahi/Rmaps).
 
 ### Loading Spatial Objects from Shape Files
 
