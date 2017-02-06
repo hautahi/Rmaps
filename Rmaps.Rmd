@@ -1,0 +1,244 @@
+---
+output:
+  html_document:
+    fig_width: 7
+    fig_height: 3
+---
+```{r set-options, echo=FALSE, cache=FALSE}
+options(width=90)
+```
+
+<h1>
+<center>
+Mapping Spatial Data in R
+</center>
+</h1>
+
+This is a brief demonstration of common mapping techniques using spatial analysis tools in R. The goal here is to go from knowing nothing about shapefiles, to being able to create meaningful and good looking maps. For this exercise, I use the crime data from Portland, Oregon that was provided by the National Institute of Justice for their [crime prediction](https://nij.gov/funding/Pages/fy16-crime-forecasting-challenge.aspx) competition. You can download the data and R scripts for this exercise from its [Github repository](https://github.com/hautahi/RGIS_Tutorial).
+
+### Loading Spatial Objects from Shape Files
+
+Spatial data usually comes in the form  of shapefiles. We can load shapefiles using the `readOGR` function from the `rgdal` package.^[The `maptools` package is also popular for reading shapefiles.]
+
+```{r cache=FALSE, echo==FALSE, warning=FALSE, error=FALSE, message = FALSE,quietly=TRUE,results='hide'}
+library(rgdal)
+port <- readOGR(dsn = "data", layer = "Police_Districts_Portland")
+crime <- readOGR(dsn = "data", layer = "NIJ_Nov2016_Crime")
+```
+
+The `port` object contains information describing the geographic area of the 60 policing districts in Portland. The `crime` object contains data relating to every crime reported in Portland during the month of November 2016.
+
+### Exploring Spatial Objects
+
+If, like me, you're used to regular R dataframes, you'll find that spatial objects (which are represented by [S4 objects](http://adv-r.had.co.nz/S4.html) under the hood) are a little weird. But their weirdness allows a lot of flexibility. The first thing to know is that each spatial object belongs to one of many different "classes". The most elementary type of spatial data are *Points*, which denote single point locations. *Lines* are a set of points connected by straight line segments that can be used to denote things like rivers or state boundaries. *Polygons* are shapes that denote area, and a *Grid* is a collection of cells organized into a regular grid. Running the `class()` command shows that the `port` object is a Spatial Polygons Data Frame and the `crime` object is a Spatial Points Data Frame. Let's plot each of these objects to see the difference.
+
+```{r cache=FALSE,fig.align='center',fig.height=4, fig.width=8,strip.white=TRUE}
+par(mfrow=c(1,2))
+plot(port); title(main = list("Portland Police Districts (Polygon Object)", cex=0.8))
+plot(crime); title(main = list("November 2016 Crime Reports (Points Object)", cex=0.8))
+```
+The map of Portland on the left is made up of 60 "polygons", each representing a policing district within Portland. The Polygon class is especially suited to describing regions or zones. The plot on the right shows a scattering of points that each describe the location of a particular crime reported in November 2016. The Points class is particularly suited to describing exact locations.
+
+### Structure of Spatial Objects
+
+The `summary()` command is a useful way of exploring a spatial object.
+
+```{r cache=FALSE, comment=NA}
+summary(crime)
+```
+
+The first line of the `summary()` output confirms that the `crime` object is a Spatial Points Data Frame. A spatial object is made up of a number of different "slots" that, together, completely describe the geographical coordinates of the shape relevant to its class (polygons in this case). The exact number and types of slots differ according to the *class* of the object.
+
+The next few lines in the output above summarize the contents of the `Coordinates` slot, which holds the geographic coordinates of each crime. The displayed values are known as the "bounding box," which gives the four points (or “corners”) that denote the spatial extent of the data. The spatial extent is basically the corners of the smallest rectangle that contains all the crime points. These values can be accessed with the `bbox()` command.
+
+```{r, comment=NA}
+bbox(crime)
+```
+
+The next few lines describe the projection characteristics of the `crime` object. A projection is an arbitrary coordinate reference system that provides a basis upon which to measure distances between objects in spatial data. All geographic objects are based on some form of coordinate system, and there are many different types of projections.  The `proj4string` slot contains a string describing the projection information of the crime object's coordinates. We'll see below that some packages require us to change the projection system to one of the more common systems - "The WGS 1984" system. The next line states that there were `r formatC(length(crime$CATEGORY), format="d", big.mark=',')` recorded crime incidents in November 2016.
+
+In addition to the geographic information, spatial objects also have additional data attributes that are contained in the `data` slot, which is actually a traditional R data frame. The output above shows that the `data` Data Frame has three columns - one describing the Category of each crime, one stating the date on which the crime occurred and one stating the census tract of each crime. Each row in the dataframe corresponds to a particular crime. The number of rows is therefore equal to the total number of crimes. Each slot can be accessed on its own via the `@` operator, as follows.
+
+```{r cache=FALSE, message = FALSE, comment=NA}
+head(crime@data)
+```
+
+
+
+
+
+### Manipulating spatial data
+
+It turns out that some of the crimes contained in `crime` occur outside the city of portland, as described by the `port` polygons. We can `clip` the crimes that occur outside the city using simple base R functions. Plotting the clipped and non-clipped data illustrates the point.
+
+```{r warning=FALSE, message=FALSE, fig.align='center',fig.height=4, fig.width=8, strip.white=TRUE}
+crime_clp <- crime[port, ] # "Clip" crime to stay in same area
+
+par(mfrow=c(1,2))
+plot(port); points(crime); title(main = list("Original Crime Data", cex=0.8))
+plot(port); points(crime_clp); title(main = list("Clipped Crime Data", cex=0.8))
+```
+
+When working with spatial data, we often want to perform operations on data that we can use to make "cross polygon" comparisons. The `aggregate` function is very useful for this because it allows us to perform operations "by" polygons. The following code counts the number of crimes contained in `crime` by the polygons defined in `port`.
+
+```{r, comment=NA}
+crime_agg <- aggregate(x=crime["CATEGORY"],by=port,FUN=length) # Aggregate by district
+summary(crime_agg)
+```
+
+The `aggregate` function identifies which `port` polygon (police district) each
+crime is committed in and groups them accordingly. Here we used the `CATEGORY` variable from the `crime@data` dataframe, although any variable could have been used here as we are merely counting how many points exist. The function then counts the number of crime points in each district, using the `length` function.
+
+The `summary(crime_agg)` command shows that new spatial object `crime_agg` is a polygon dataframe which has the same projection properties and "bounding box" as the `port` object. This is because the aggregate function simply counted the number of crimes whose x,y coordinates were in each of the polygons described by the `port` object. `crime_agg` only has one data attribute, however, which corresponds to the crime counts within each police district. Because there are only 60 police districts, we can actually just print the `CATEGORY` data column, which lists the crime count within each of the 60 districts. Each entry represents the number of crimes committed in that row's corresponding polygon.
+
+```{r, comment=NA}
+print(crime_agg$CATEGORY)
+```
+
+### Plotting spatial data with Leaflet
+
+There are a number of very useful packages for plotting spatial data, including [ggmap](https://cran.r-project.org/web/packages/ggmap/index.html), and [tmap](https://cran.r-project.org/web/packages/tmap/index.html). Here, we will use Leaflet. It isn't the simplest package, but it offers a lot of power, is apparently the [leading open-source](http://leafletjs.com/) mapping library and, in my opinion, looks cool. The first thing to do is to transform the projection of the coordinates.
+
+```{r}
+crime_agg84 <- spTransform(crime_agg, CRS("+init=epsg:4326")) # Reproject coordinates
+```
+
+We're going to create a choropleth map. The colorBin function of the Leaflet package divides the values into a specified number of bins (5 in this case) and maps these values to colors following a palette, in this case a palette of Reds. You can find information about the other palettes by typing `?RColorBrewer`.
+
+```{r}
+library(leaflet)
+qpal <- colorBin("Reds", crime_agg84$CATEGORY, bins=5)
+```
+
+The syntax of the Leaflet plot is actually very similar to the popular ggplot syntax in the sense that you add layers to the map in steps. The first is to create a leaflet object from the `crime_agg84` spatial object. We then use the `addPolygons` layer to overlay the police district outlines onto the map. We use the pallette mapping created above in the `fillColor` option. Finally, we add a a legend.
+
+```{r plot1, warning=FALSE, message=FALSE,fig.align='center', results='hide'}
+leaflet(crime_agg84) %>%
+  addPolygons(stroke = TRUE,opacity = 1,fillOpacity = 0.5, smoothFactor = 0.5,color="black",fillColor = ~qpal(CATEGORY),weight = 1) %>%
+  addLegend(values=~CATEGORY,pal=qpal,title="Crime Count")
+```
+
+<!--- Add below so I can center the plot --->
+<center>
+```{r, ref.label='plot1', echo=FALSE,}
+```
+</center>
+
+### Creating a spatial grid
+
+When working with spatial data, we would often like to work within our own evenly-spaced grid. The `raster` package is a simple way to make grids.
+
+```{r warning=FALSE, message=FALSE}
+library(raster)
+e <- extent(bbox(port))                 # define boundaries of object
+r <- raster(e)                          # create raster object 
+dim(r) <- c(40, 40)                     # specify number of cells
+projection(r) <- CRS(proj4string(port)) # give it the same projection as port
+g <- as(r, 'SpatialPolygonsDataFrame')  # Convert into Polygon
+```
+
+The first step in the code above is to define an `extent` object, which basically defines the "boundaries" of our raster grid. Here, I've used the boundaries of the `port` object, which is accessed by the `bbox` command. The next line creates the raster object with our given extent. We then specify how many cells we'd like the raster to have. Here we specify the dimensions of the raster, which splits the extent into a 40 x 40 square grid. Finally, I give the raster cell the same projection orientation as `port`. The resulting `r` is a raster object, which we then convert into a spatial polygon object `g`.
+
+Inspecting `g`, we see that it has the same min and max x,y coordinates as port, as a result of the extent we defined above. There are no data attributes because we haven't defined any.
+
+```{r, comment=NA}
+summary(g)
+```
+
+We now clip the new grid to match Portland and perform the same aggregation procedure to count the number of crimes within our newly defined (square) polygons.
+
+```{r}
+p <- g[port,]
+crime_agg1 <- aggregate(x=crime["CATEGORY"],by=p,FUN=length)
+```
+
+Something to watch out for when using a fine grid, which are now a lot smaller than the initial police districts, is that some polygons may not have any crimes committed within them. The length function therefore takes the length of an empty vector in those cases, which returns a `NA` value. To avoid ugly `NA` parts on the map, we replace them with with zeros.
+
+```{r}
+crime_agg1$CATEGORY[is.na(crime_agg1$CATEGORY)] = 0
+```
+
+Note that the above is simple base R code for dealing with dataframes. That's because the object `crime_agg1$CATEGORY` is simply an R dataframe, which happens to live inside a spatial object.
+
+```{r plot2, warning=FALSE, message=FALSE,,fig.align='center',results='hide'}
+crime_agg841 <- spTransform(crime_agg1, CRS("+init=epsg:4326")) # reproject
+qpal <- colorBin("Reds", crime_agg841$CATEGORY, bins=5)
+leaflet(crime_agg841) %>%
+  addPolygons(stroke = TRUE,opacity = 1,fillOpacity = 0.5, smoothFactor = 0.5,color="black",fillColor = ~qpal(CATEGORY),weight = 0.5) %>%
+  addLegend(values=~CATEGORY,pal=qpal,title="Crime Count")
+```
+
+<center>
+```{r, ref.label='plot2', echo=FALSE,}
+```
+</center>
+<br>
+The above looks pretty close, but because each of the grids are square, its only a rough approximation of the portland area. Ideally, we'd like our grid to exactly overlay the Portland map. This means trimming some of the outer squares. Using the `rgeos` package, we first "melt" the 60 Portland polygons into a single `portland` polygon. We then use the `gIntersection` function to find the polygon that is enclosed by both the `portland` polygons and the grid `p` we created above.
+
+```{r han, warning=FALSE, message=FALSE}
+library(rgeos)
+portland = gUnaryUnion(port, port$dummy) # Melt Portland districts into one polygon
+map <- gIntersection(p,portland,byid = TRUE,drop_lower_td = TRUE) # Take the intersection of the grid and the Portland map
+```
+
+With this new polygon spatial object, we can then perform the same calculations.
+
+```{r results='hide'}
+crime_agg2 <- aggregate(x=crime["CATEGORY"],by=map,FUN=length)
+crime_agg2$CATEGORY[is.na(crime_agg2$CATEGORY)] = 0
+crime_agg842 <- spTransform(crime_agg2, CRS("+init=epsg:4326")) # reproject
+qpal <- colorBin("Reds", crime_agg842$CATEGORY, bins=5)
+plot3 <-
+  leaflet(crime_agg842) %>%
+  addPolygons(stroke = TRUE,opacity = 1,fillOpacity = 0.5, smoothFactor = 0.5,color="black",fillColor = ~qpal(CATEGORY),weight = 0.5) %>%
+  addLegend(values=~CATEGORY,pal=qpal,title="Crime Count")
+```
+
+<center>
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+plot3
+```
+</center>
+<br>
+Looking pretty good. Now we can add an open source version of a Portland map to see how our map looks on the actual city. We do this by appending the `addTiles()` function to our original plot
+
+```{r results='hide'}
+plot4 <- plot3 %>% addTiles()
+```
+<center>
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+plot4
+```
+</center>
+
+<br>
+Notice too that Leaflet plots are fully interactive. This means you can set the zoom using the `setView()` function as follows. We first find the center of portland using the `gCentroid` function, and then set the zoom. Default is 10, so this makes it slightly more zoomed in.
+
+```{r results='hide'}
+cent <- gCentroid(crime_agg842) # Find center of map
+plot5 <- plot4 %>% setView(zoom = 11,lng=cent@coords[[1]], lat=cent@coords[[2]])
+```
+
+<center>
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+plot5
+```
+</center>
+
+### Saving Shape Files
+
+The `rgdal` package that we used to read in spatial data also has a useful `writeOGR` function for saving shapefiles.
+
+```{r}
+writeOGR(crime_agg842, dsn='output_data', layer='Portland', driver="ESRI Shapefile", overwrite_layer=T)
+```
+
+### References
+
+I found the following resources particularly helpful.
+
+- An [intro to spatial analysis in R](https://cran.r-project.org/doc/contrib/intro-spatial-rl.pdf) by Robin Lovelace and others.
+
+- A [spatial data tutorial](https://pakillo.github.io/R-GIS-tutorial/) by Francisco Rodriguez-Sanchez.
+
+- A [post](http://www.nickeubank.com/gis-in-r/) by Nick Eubank.
