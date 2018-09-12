@@ -10,7 +10,7 @@ options(width=90)
 
 
 
-This is a brief demonstration of common data manipulation and mapping techniques using spatial analysis tools in R. The goal here is to go from knowing nothing about shapefiles, to being able to create meaningful and attractive maps. For this exercise, I use crime data from Portland, Oregon that was provided by the National Institute of Justice for their [crime prediction competition](https://nij.gov/funding/Pages/fy16-crime-forecasting-challenge.aspx) (in which, incidentally, my colleagues at IMPAQ and I were able to win a couple categories). The data and R scripts for this exercise are available at its [Github repository](https://github.com/hautahi/Rmaps).
+This is a brief demonstration of common data manipulation and mapping techniques using spatial analysis tools in R. The goal here is to go from knowing nothing about shapefiles, to being able to create meaningful and attractive maps. For this exercise, I use crime data from Portland, Oregon that was provided by the National Institute of Justice for their [crime prediction competition](https://nij.gov/funding/Pages/fy16-crime-forecasting-challenge.aspx). The data and R scripts for this exercise are available at its [Github repository](https://github.com/hautahi/Rmaps).
 
 ### Loading Spatial Objects from Shape Files
 
@@ -26,14 +26,14 @@ The `port` object contains information describing the geographic area of the 60 
 
 ### Exploring Spatial Objects
 
-If you're used to regular R dataframes, you'll find that spatial objects (represented by [S4 objects](http://adv-r.had.co.nz/S4.html)) are a little weird. But this weirdness allows a lot of flexibility. The first thing to know is that each spatial object belongs to one of many different "classes". The most elementary type of spatial data are *Points*, which denote single point locations. *Lines* are a set of points connected by straight line segments that can be used to denote things like rivers or state boundaries. *Polygons* are shapes that denote area, and a *Grid* is a collection of cells organized into a regular grid. Running the `class()` command shows that the `port` object is a Spatial Polygons Data Frame and the `crime` object is a Spatial Points Data Frame. We can plot spatial objects easily using base R plot functions.
+If you're used to regular R dataframes, you'll find that spatial objects (represented by [S4 objects](http://adv-r.had.co.nz/S4.html)) are a little weird. But this allows a lot of flexibility. The first thing to know is that each spatial object belongs to one of many different "classes". The most elementary type of spatial data are *Points*, which denote single point locations. *Lines* are a set of points connected by straight line segments that can be used to denote things like rivers or state boundaries. *Polygons* are shapes that denote area, and a *Grid* is a collection of cells organized into a regular grid. Running the `class()` command shows that the `port` object is a Spatial Polygons Data Frame and the `crime` object is a Spatial Points Data Frame. We can plot spatial objects easily using base R plot functions.
 
-```{r cache=FALSE,fig.align='center',fig.height=4, fig.width=8,strip.white=TRUE}
+```{r cache=FALSE,fig.align='center',fig.height=4,fig.width=8,strip.white=TRUE}
 par(mfrow=c(1,2))
 plot(port); title(main = list("Portland Police Districts (Polygon Object)", cex=0.8))
 plot(crime); title(main = list("November 2016 Crime Reports (Points Object)", cex=0.8))
 ```
-The map of Portland on the left is made up of 60 *polygons*, each representing a policing district within Portland. The Polygon class is especially suited to describing regions or zones. The plot on the right shows a scattering of points that each describe the location of a particular crime reported in November 2016. The Points class is particularly suited to describing exact locations.
+The map on the left is made up of 60 *polygons*, each representing a policing district within Portland. The Polygon class is especially suited to describing regions or zones. The plot on the right shows a scattering of points that each describe the location of a particular crime reported in November 2016. The Points class is particularly suited to describing exact locations.
 
 ### Structure of Spatial Objects
 
@@ -51,7 +51,7 @@ The next few lines in the output above summarize the contents of the `Coordinate
 bbox(crime)
 ```
 
-The next few lines describe the projection characteristics of the `crime` object. A projection is an arbitrary coordinate reference system that provides a basis upon which to measure distances between objects in spatial data. All geographic objects are based on some form of coordinate system, and there are many different types of projections.  The `proj4string` slot contains a string describing the projection information of the crime object's coordinates. We'll see below that some packages require us to change the projection system to one of the more common systems. The next line states that there were `r formatC(length(crime$CATEGORY), format="d", big.mark=',')` recorded crime incidents in November 2016.
+The next lines describe the projection characteristics of the `crime` object. A projection is an arbitrary coordinate reference system that provides a basis upon which to measure distances between objects in spatial data. All geographic objects are based on some form of coordinate system, and there are many different types of projections.  The `proj4string` slot contains a string describing the projection information of the crime object's coordinates. We'll see below that some packages require us to change the projection system to one of the more common systems. The next line states that there were `r formatC(length(crime$CATEGORY), format="d", big.mark=',')` recorded crime incidents in November 2016.
 
 In addition to the geographic information, spatial objects also have additional data attributes that are contained in the `data` slot, which is actually a traditional R data frame. The output above shows that the `data` Data Frame has three columns - one describing the Category of each crime, one stating the date on which the crime occurred and one stating the census tract of each crime. Each row in the dataframe corresponds to a particular crime. The number of rows is therefore equal to the total number of crimes. Each slot can be accessed on its own via the `@` operator, as follows.
 
@@ -228,9 +228,10 @@ plot5
 The `rgdal` package that we used to read in spatial data also has a useful `writeOGR` function for saving shapefiles.
 
 ```{r}
-writeOGR(crime_agg2, dsn='output_data', layer='Portland', driver="ESRI Shapefile", overwrite_layer=T)
+writeOGR(crime_agg2, dsn='output_data', layer='Portland', driver="ESRI Shapefile",
+         overwrite_layer=T)
 ```
 
 ### References
 
-There are so many great blog posts and textbooks out there. Some resources that I found particularly helpful were an [intro to spatial analysis in R](https://cran.r-project.org/doc/contrib/intro-spatial-rl.pdf) by Robin Lovelace and others, a [spatial data tutorial](https://pakillo.github.io/R-GIS-tutorial/) by Francisco Rodriguez-Sanchez, and a [set of tutorials](http://www.nickeubank.com/gis-in-r/) by Nick Eubank.
+There are a lot of great blog posts and textbooks out there. Some resources that I found particularly helpful were an [intro to spatial analysis in R](https://cran.r-project.org/doc/contrib/intro-spatial-rl.pdf) by Robin Lovelace and others, a [spatial data tutorial](https://pakillo.github.io/R-GIS-tutorial/) by Francisco Rodriguez-Sanchez, and a [set of tutorials](http://www.nickeubank.com/gis-in-r/) by Nick Eubank.
